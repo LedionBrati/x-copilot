@@ -150,6 +150,22 @@ Real API calls verified 2026-09-24 in every mode (post, reply, quote, fix).
   arrive scrambled and backspace is ignored, even with no extension code
   involved. Editing feel has to be checked by hand.
 - **Never click X's Post, Reply or Repost buttons while testing.** He does not
-  want anything posted without his say.
+  want anything posted without his say. Close test boxes with X's × and pick
+  **Discard**. Never fire a synthetic ⌘↵ in a compose box: X may post it.
+- **Testing pollutes his voice.** Every test "used"/"edit" lands in
+  posted.jsonl, and 5 new events trigger a learning run that writes
+  learned.md. Before testing, copy posted.jsonl, voice/learned.md and
+  voice/.learned-state.json aside; restore all three after.
+- **A test tab that isn't the focused window is throttled.** Timers slow to
+  ~1s, so the ✦ appears late, X's reply popup builds late, and the clipboard
+  refuses to write. Judge speed and Copy only in a tab he is looking at.
+- **What a post was for is matched on the box, then the tweet.** `remember()`
+  stores the draft plus the box it went into (Use this) or the target box
+  (Copy). `intentFor()` pairs the post with that draft only if it leaves the
+  same box, or answers the same tweet. A 30 minute window alone once paired
+  a post with a draft for a different tweet.
+- **The tweet-row ✦ opens X's reply popup itself** on Use this (clicking the
+  tweet's reply icon, which only opens a box), then writes into it. Before,
+  the reply landed in the home "What's happening" box as a plain post.
 - **The panel must stay inside the shadow root.** Anything appended to the page
   directly will get styled by X.

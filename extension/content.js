@@ -34,6 +34,13 @@
     // The compose box the ✦ was clicked from, so "Use this" writes back into
     // it. null means "the first box on the page".
     target: null,
+    // The tweet a tweet-row ✦ was clicked on, so "Use this" can open X's
+    // reply box for it instead of writing into the home feed's box.
+    article: null,
+    // The draft he last used or copied, with the box it went into and what it
+    // was for, so the post he finally sends is logged against the right draft
+    // and the right tweet. See intentFor.
+    session: null,
   };
 
   let host, root, ui;
@@ -99,6 +106,17 @@
       },
       true
     );
+    // ⌘↵ posts without ever touching the Post button, so it needs its own
+    // hook or those posts never reach the log.
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") return;
+        const box = e.target?.closest?.('[data-testid^="tweetTextarea_"]');
+        if (box) recordPost(box);
+      },
+      true
+    );
     let path = location.pathname;
     setInterval(() => {
       if (location.pathname === path) return;
@@ -111,30 +129,42 @@
       without a draft behind it. Read at the click on X's own Post / Reply
       button, in the capture phase, before X clears the box. Only reads: never
       blocks, delays, or changes the post. Stays in posted.jsonl on this Mac. */
-  function recordPost(btn) {
-    let n = btn;
-    let text = "";
-    for (let i = 0; n && i < 25 && !text; i++, n = n.parentElement) {
-      const boxes = n.querySelectorAll?.('[data-testid^="tweetTextarea_"][contenteditable="true"]');
-      if (boxes?.length) text = [...boxes].map((b) => b.innerText.trim()).filter(Boolean).join("\n\n");
+  function recordPost(from) {
+    // Stop at the nearest set of boxes, even if they're empty. Walking on past
+    // them reached the home feed's box behind a reply popup.
+    let boxes = [];
+    for (let n = from, i = 0; n && i < 25 && !boxes.length; i++, n = n.parentElement) {
+      boxes = [...(n.querySelectorAll?.('[data-testid^="tweetTextarea_"][contenteditable="true"]') || [])];
     }
+    const text = boxes.map((b) => b.innerText.trim()).filter(Boolean).join("\n\n");
     if (!text) return;
-    // A draft used more than half an hour ago is not what this post came from.
-    const use = state.lastUse && Date.now() - state.lastUse.at < 30 * 60 * 1000 ? state.lastUse : null;
-    state.lastUse = null;
-    send("accepted", {
-      event: "posted",
-      text,
-      mode: use?.mode || state.pending?.mode || "post",
-      context: use?.context || state.pending?.tweet || null,
-      drafted: use?.drafted || null,
-      used: use?.used || null,
-    });
+    const { mode, context, drafted = null, used = null } = intentFor(boxes);
+    state.session = null;
+    send("accepted", { event: "posted", text, mode, context, drafted, used });
   }
 
-  /** What a composer-bar draft is for: a reply, a quote, or a fresh post. */
-  function composerIntent() {
-    if (state.pending) return state.pending;
+  /** What the post leaving these boxes is, and which draft it started from.
+      Replies were being logged as plain posts, and a post was once paired
+      with a draft for a different tweet, so both are now matched on the box
+      itself where possible, and on the tweet otherwise. */
+  function intentFor(boxes) {
+    const s = state.session;
+    // A draft used more than half an hour ago is not what this post came from.
+    const fresh = s && Date.now() - s.at < 30 * 60 * 1000 ? s : null;
+    if (fresh?.box && boxes.includes(fresh.box)) return fresh;
+    const draftFor = (tweet) =>
+      fresh && (fresh.context?.text || "") === (tweet?.text || "") ? { drafted: fresh.drafted, used: fresh.used } : {};
+    const { mode, tweet } = composerIntent(boxes);
+    return { mode, context: tweet, ...draftFor(tweet) };
+  }
+
+  /** What a compose box is for: a reply, a quote, or a fresh post. */
+  function composerIntent(boxes = []) {
+    // The intent from X's reply/repost click only applies once that click has
+    // actually opened a compose box. Otherwise opening the repost menu and
+    // pressing Esc left every later draft stuck in quote mode.
+    if (state.pending && location.pathname.startsWith("/compose/")) return state.pending;
+    if (boxes.some((b) => b.closest('[role="dialog"]'))) return { mode: "post", tweet: null };
     // Opened straight onto a tweet's own page: the reply box is already there
     // and he may never touch X's reply button, so the page's subject is it.
     if (/\/status\/\d+/.test(location.pathname)) {
@@ -150,16 +180,14 @@
   async function writeIntoComposer(text) {
     const box =
       (state.target?.isConnected && state.target) ||
-      // With a reply or post popup open, the home feed's box is still on the
-      // page behind it under the same testid, and it comes first.
-      document.querySelector('[role="dialog"] [data-testid="tweetTextarea_0"]') ||
+      dialogBox() ||
       document.querySelector('[data-testid="tweetTextarea_0"]') ||
       document.querySelector('[role="textbox"][contenteditable="true"]');
-    if (!box) return false;
+    if (!box) return null;
     box.focus();
     // If focus didn't land in the box, "selectAll" would select the whole
     // page instead. Bail out so the draft goes to the clipboard.
-    if (!box.contains(document.activeElement)) return false;
+    if (!box.contains(document.activeElement)) return null;
     // "selectAll" selects the text the way a user would, so the draft
     // replaces whatever is there. The editor only learns about the new
     // selection from the selectionchange event, which fires a moment later.
@@ -179,11 +207,32 @@
     data.setData("text/plain", text);
     const paste = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
     box.dispatchEvent(paste);
-    if (paste.defaultPrevented) return true;
+    if (paste.defaultPrevented) return box;
     // X didn't take the paste (editor changed?). Plain insert still beats
     // nothing for a one-line draft. Never add a second InputEvent on top:
     // that made the editor apply the text twice.
-    return document.execCommand("insertText", false, text);
+    return document.execCommand("insertText", false, text) ? box : null;
+  }
+
+  /** With a reply or post popup open, the home feed's box is still on the
+      page behind it under the same testid, and it comes first. */
+  const dialogBox = () => document.querySelector('[role="dialog"] [data-testid="tweetTextarea_0"]');
+
+  /** A tweet-row ✦ has no compose box of its own, and "Use this" used to drop
+      the reply into the home feed's box, where it would go out as a plain
+      post. Open X's own reply box for that tweet instead (this only opens
+      the box, it never posts), and wait for it to appear. */
+  async function openReplyBox() {
+    const btn = state.article?.isConnected && state.article.querySelector('[data-testid="reply"]');
+    if (!btn) return null;
+    btn.click();
+    // X builds the popup lazily and can take a few seconds on a slow load.
+    for (let i = 0; i < 50; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      const box = dialogBox();
+      if (box) return box;
+    }
+    return null;
   }
 
   /* ------------------------------------------------------- the button --- */
@@ -236,6 +285,7 @@
         makeButton(() => {
           state.context = readTweet(article);
           state.target = null;
+          state.article = article;
           open("reply");
         }, "Draft a reply with x-copilot")
       );
@@ -248,11 +298,14 @@
       if (toolbar.querySelector("." + BTN)) continue;
       toolbar.appendChild(
         makeButton(() => {
-          const { mode, tweet } = composerIntent();
-          state.pending = null;
-          state.context = tweet;
           // "Use this" must write back into this box, not whichever is first.
-          state.target = boxNear(toolbar);
+          const box = boxNear(toolbar);
+          // Not consumed here: opening the panel twice on the same reply box
+          // must stay a reply, and the post itself is matched against it too.
+          const { mode, tweet } = composerIntent(box ? [box] : []);
+          state.context = tweet;
+          state.target = box;
+          state.article = null;
           open(mode);
         }, "Draft with x-copilot")
       );
@@ -307,7 +360,13 @@
     await mount();
     state.mode = mode;
     state.variants = [];
+    state.error = null;
     state.chips.clear();
+    // Reopening on the same thing keeps what he'd typed, so an accidental Esc
+    // costs nothing. A different tweet starts clean: before, the take he typed
+    // for one reply was sitting in the box for the next.
+    const subject = mode + "|" + (state.context?.text || "");
+    if (ui?.subject !== subject) ui = { ...ui, subject, seedValue: "" };
     render();
     // Deliberately does not draft on open. His own rough take is the best
     // steer the model gets, and drafting first throws three finished replies
@@ -365,6 +424,7 @@
             onclick: () => {
               state.mode = key;
               state.variants = [];
+              state.error = null;
               render();
             },
           })
@@ -488,7 +548,7 @@
           box,
           v.error ? el("div", { class: "note bad", text: v.error }) : null,
           el("div", { class: "card-foot" }, [
-            el("button", { class: "act primary", text: "Use this", onclick: () => use(v) }),
+            el("button", { class: "act primary", text: "Use this", onclick: (e) => use(v, e.target) }),
             el("button", {
               class: "act",
               text: state.speakingIndex === i ? "◼ Stop" : "▶ Read",
@@ -501,7 +561,7 @@
               title: "Rewrite only this draft. If you changed its words, it keeps your changes.",
               onclick: () => redo(i),
             }),
-            el("button", { class: "act", text: "Copy", onclick: (e) => copy(v.text, e.target) }),
+            el("button", { class: "act", text: "Copy", onclick: (e) => copy(v, e.target) }),
             count,
           ]),
         ])
@@ -600,8 +660,22 @@
     paint();
   }
 
-  async function use(v) {
-    const ok = await writeIntoComposer(v.text);
+  async function use(v, btn) {
+    // Opening X's reply box can take a few seconds. Without this a second
+    // tap opened it twice.
+    if (state.using) return;
+    state.using = true;
+    let box;
+    try {
+      if (state.mode === "reply" && !state.target?.isConnected && !dialogBox()) {
+        // Say what's happening, or the panel just sits there looking stuck.
+        if (btn) btn.textContent = "opening reply…";
+        state.target = await openReplyBox();
+      }
+      box = await writeIntoComposer(v.text);
+    } finally {
+      state.using = false;
+    }
     send("accepted", {
       event: "used",
       mode: state.mode,
@@ -613,21 +687,38 @@
       angle: v.angle,
       alternatives: state.variants.filter((x) => x !== v).map((x) => x.text),
     });
-    // Remembered so the post he finally sends can be paired with this draft.
-    state.lastUse = { at: Date.now(), mode: state.mode, context: state.context, drafted: v.drafted, used: v.text };
-    if (ok) {
+    remember(v, box);
+    if (box) {
+      if (ui) ui.seedValue = "";
       close();
     } else {
-      navigator.clipboard.writeText(v.text);
+      navigator.clipboard.writeText(v.text).catch(() => {});
       state.error = "X's box wasn't open, so it's on your clipboard instead. Paste it in.";
       paint();
     }
   }
 
-  async function copy(text, btn) {
-    await navigator.clipboard.writeText(text);
+  /** Remembered so the post he finally sends is paired with this draft. */
+  function remember(v, box) {
+    state.session = {
+      at: Date.now(),
+      box: box || (state.target?.isConnected ? state.target : null),
+      mode: state.mode,
+      context: state.context,
+      drafted: v.drafted,
+      used: v.text,
+    };
+  }
+
+  async function copy(v, btn) {
+    // Copy is the other way a draft reaches X. Without this, a copied and
+    // pasted draft was logged as something he wrote from scratch.
+    remember(v, null);
+    // Chrome refuses to copy when the window isn't focused. Say so, instead
+    // of leaving him to paste whatever was on the clipboard before.
+    const ok = await navigator.clipboard.writeText(v.text).then(() => true, () => false);
     const was = btn.textContent;
-    btn.textContent = "Copied";
+    btn.textContent = ok ? "Copied" : "Couldn't copy";
     setTimeout(() => (btn.textContent = was), 1200);
   }
 
@@ -702,11 +793,22 @@
       e.preventDefault();
       state.context = null;
       state.target = null;
+      state.article = null;
       open("post");
     }
   });
 
   watchForComposeIntent();
   decorate();
-  new MutationObserver(() => decorate()).observe(document.body, { childList: true, subtree: true });
+  // X mutates the page constantly while scrolling. Decorating once per burst
+  // instead of once per mutation keeps the feed from stuttering.
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    setTimeout(() => {
+      queued = false;
+      decorate();
+    }, 150);
+  }).observe(document.body, { childList: true, subtree: true });
 })();
