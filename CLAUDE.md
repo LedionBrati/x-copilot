@@ -79,18 +79,65 @@ curl -s localhost:8787/health
 Extension: `chrome://extensions` → Developer mode → Load unpacked → `extension/`.
 After editing extension files, hit reload on the card there, then reload x.com.
 
-## State as of the handoff
+## State as of the handoff (2026-09-28, end of day)
 
 Working and verified:
 - Server boots, `/health` responds, errors are human-readable
 - Zod schema converts to a valid OpenAI strict JSON schema
 - Panel renders correctly; contrast measured and above the floor
+- Real API calls in every mode (post, reply, quote, fix), 2026-09-24
+- He uses it for real: posts and replies since 2026-09-24, learning is live
 
-Real API calls verified 2026-09-24 in every mode (post, reply, quote, fix).
+### What happened, in order
+
+**2026-09-24**
+- Multi-line drafts broke the caret (Backspace hit a line he hadn't
+  clicked). Fixed by writing into X's box as a synthetic paste. See Gotchas.
+- `voice/ledi.md` calibrated from his real X posts (step 2 below).
+- Repo made **public** at github.com/LedionBrati/x-copilot, pushed as one
+  clean commit. Before that, `voice/ledi.md` was made private (gitignored,
+  it holds personal details) and `voice/ledi.example.md` added as the
+  template. The dyslexia notes stay public: his choice.
+
+**2026-09-28: bug hunt, then tested live on x.com without posting**
+- Found in his real log: replies saved as plain posts with no tweet, a post
+  paired with a draft for a different tweet, copied drafts counted as his
+  own writing, ⌘↵ posts not logged. All fixed (`remember()`/`intentFor()`).
+- Tweet-row ✦ "Use this" now opens X's reply box for that tweet and writes
+  there, instead of into the home box where it would post as a plain post.
+- Also fixed: stale quote mode after a cancelled repost menu, reopening a
+  reply box flipping to post mode, his typed take carrying over to another
+  tweet, old errors reappearing, feed stutter from decorating per mutation.
+- Tested and passing: tweet-row reply, quote, home post, redo, edited redo,
+  chips, a tweet's own page, multi-line drafts. His learning files were
+  backed up and restored, so no test data reached his voice.
+- Git author email switched to his GitHub noreply address (global config),
+  and the public history was rewritten to drop the old one. GitHub now
+  blocks pushes that expose his personal email: if a push is refused for
+  that, re-author the commit, never turn the block off.
+
+### Not verified yet, check these first next session
+
+1. **Two last fixes need an extension reload, then a look:** "Use this" on
+   a tweet-row ✦ should say "opening reply…" and ignore a second tap; Copy
+   should say "Couldn't copy" when Chrome refuses.
+2. **Logging of a real post.** Can't be tested without posting. After his
+   next real reply, check the newest `posted` line in posted.jsonl: it must
+   say `mode: "reply"` with the right `context.author`.
+3. **Copy** only works in a focused window, so he has to try it by hand.
+
+### Branches: read before any push
+
+- `main` is the only branch on GitHub. Push only `main`.
+- `private-history` (full early history, contains his personal voice file)
+  and `backup-before-email` (history before the email rewrite) are local
+  backups. **Never push either.**
+- The repo is public: scan the diff for personal details and keys before
+  every push.
 
 ## Next steps, roughly in order
 
-1. **Make one real draft** and see what comes back.
+1. **Run the three checks above.**
 2. ~~Calibrate `voice/ledi.md`.~~ Done 2026-09-24, derived from 61 of his
    real X posts and replies (@LedionBrati, 18 posts + 43 replies) using
    ghostwriter-os's fingerprint tool, with tone borrowed from the
@@ -100,6 +147,8 @@ Real API calls verified 2026-09-24 in every mode (post, reply, quote, fix).
 3. ~~Feed `posted.jsonl` back in.~~ Done and automatic, see `learn.mjs`. He
    asked explicitly that learning never needs a command or manual step:
    keep it that way.
+4. **Drafts still use "quote marks"** now and then, though `ledi.md` bans
+   them. Watch whether learning fixes it; if not, strengthen the rule.
 
 ## Gotchas that already bit, or will
 
