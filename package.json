@@ -1,0 +1,15 @@
+{
+  "name": "x-copilot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local drafting copilot that lives inside x.com. No chat window, no copy-paste.",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs"
+  },
+  "dependencies": {
+    "openai": "^7.23.0",
+    "zod": "^4.6.5"
+  }
+}

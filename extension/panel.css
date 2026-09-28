@@ -1,0 +1,467 @@
+/* ---------------------------------------------------------------------------
+   x-copilot panel
+
+   Direction: warm paper laid over cold glass. X is near-black and clinical;
+   this is a sheet of cream paper on top of it. The contrast is the point —
+   it should never feel like part of X's UI, it should feel like your desk.
+
+   Every type decision here is made for a dyslexic reader:
+   cream not white (kills glare), Atkinson Hyperlegible (disambiguated
+   letterforms), 1.75 line-height, positive letter- and word-spacing,
+   ragged-right, short measure, and no italics anywhere.
+--------------------------------------------------------------------------- */
+
+:host {
+  /* --- surfaces --- */
+  --paper:        #F4EDE2;
+  --paper-raised: #FBF6EC;
+  --paper-sunk:   #EAE0D1;
+
+  /* --- 3-step text ramp, each step has one job ---------------------------
+     ink       : the draft itself, headings                     15.0:1
+     ink-prose : supporting sentences, labels                   10.2:1
+     ink-meta  : counts, timings, hints                          5.3:1
+     rule      : DECORATIVE ONLY — borders and separators.
+                 Never put a word a reader needs in --rule.
+  ----------------------------------------------------------------------- */
+  --ink:       #221E1A;
+  --ink-prose: #3A332B;
+  --ink-meta:  #6B6055;
+  --rule:      #D9CDBB;
+
+  /* --- accents --- */
+  --accent:      #1A4B8C;   /* 7.5:1 on paper — actions, focus */
+  --accent-soft: #DCE6F2;
+  --warm:        #9C4708;   /* 5.5:1 on paper — active chips */
+  --warm-soft:   #F2E2D0;
+
+  --shadow: 0 2px 4px rgba(34,30,26,.06), 0 12px 32px rgba(34,30,26,.14),
+            -1px 0 0 var(--rule);
+
+  --font: "Atkinson Hyperlegible", "Lucida Grande", Verdana, sans-serif;
+
+  all: initial;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 400;
+  src: url("__FONT400__") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 700;
+  src: url("__FONT700__") format("woff2");
+  font-display: swap;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 428px;
+  max-width: 100vw;
+  height: 100vh;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--paper);
+  /* A faint grain so the surface reads as paper, not as a flat div. */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+  box-shadow: var(--shadow);
+  font-family: var(--font);
+  color: var(--ink);
+  transform: translateX(100%);
+  animation: slide-in .32s cubic-bezier(.16, 1, .3, 1) forwards;
+}
+@keyframes slide-in { to { transform: translateX(0); } }
+
+.panel.closing { animation: slide-out .2s ease-in forwards; }
+@keyframes slide-out { to { transform: translateX(100%); } }
+
+/* ---------------------------------------------------------- header ------ */
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 22px 11px;
+  border-bottom: 1px solid var(--rule);
+  flex: none;
+}
+.mark {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--ink);
+}
+.mark .dot { color: var(--warm); }
+.head .status {
+  font-size: 12.5px;
+  color: var(--ink-meta);
+  letter-spacing: .01em;
+  margin-left: auto;
+}
+.close {
+  appearance: none;
+  border: 0;
+  background: none;
+  font-family: var(--font);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink-prose);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.close:hover { background: var(--paper-sunk); }
+.close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ----------------------------------------------------------- modes ------ */
+
+.modes {
+  display: flex;
+  gap: 4px;
+  padding: 11px 22px 0;
+  flex: none;
+}
+.mode {
+  appearance: none;
+  border: 1px solid transparent;
+  background: none;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--ink-meta);
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.mode:hover { color: var(--ink); background: var(--paper-sunk); }
+.mode[aria-selected="true"] {
+  color: var(--paper-raised);
+  background: var(--ink);
+}
+.mode:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mode-hint {
+  padding: 8px 22px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-prose);
+  max-width: 54ch;
+  flex: none;
+}
+
+/* ------------------------------------------------------------ seed ------ */
+
+.seed-wrap { padding: 12px 22px 0; flex: none; }
+
+.seed {
+  width: 100%;
+  min-height: 62px;
+  resize: vertical;
+  font-family: var(--font);
+  font-size: 16.5px;
+  line-height: 1.7;
+  letter-spacing: .012em;
+  word-spacing: .06em;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.seed::placeholder { color: var(--ink-meta); }
+.seed:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.seed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.go {
+  appearance: none;
+  border: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: #FBF6EC;
+  background: var(--accent);
+  padding: 11px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.go:hover { background: #163F76; }
+.go:disabled { background: var(--ink-meta); cursor: default; }
+.go:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.mic {
+  appearance: none;
+  font-family: var(--font);
+  font-size: 15px;
+  border: 1.5px solid var(--rule);
+  background: var(--paper-raised);
+  color: var(--ink-prose);
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.mic:hover { border-color: var(--ink-meta); }
+.mic[data-on="true"] { background: var(--warm-soft); border-color: var(--warm); color: var(--warm); }
+.mic:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.hint {
+  font-size: 13px;
+  color: var(--ink-meta);
+  margin-left: auto;
+  text-align: right;
+}
+
+/* ----------------------------------------------------------- chips ------ */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 22px 4px;
+  flex: none;
+}
+.chips-label {
+  width: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-meta);
+  margin-bottom: 2px;
+}
+.chip {
+  appearance: none;
+  font-family: var(--font);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: var(--ink-prose);
+  background: var(--paper-raised);
+  border: 1.5px solid var(--rule);
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--ink-meta); color: var(--ink); }
+.chip[aria-pressed="true"] {
+  background: var(--warm-soft);
+  border-color: var(--warm);
+  color: var(--warm);
+}
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* -------------------------------------------------------- variants ------ */
+
+.results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 22px 28px;
+  scrollbar-width: thin;
+}
+
+.card {
+  background: var(--paper-raised);
+  border: 1.5px solid var(--rule);
+  border-radius: 10px;
+  padding: 15px 16px 12px;
+  margin-bottom: 12px;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: rise .4s cubic-bezier(.16, 1, .3, 1) forwards;
+}
+.card:nth-child(1) { animation-delay: .02s; }
+.card:nth-child(2) { animation-delay: .10s; }
+.card:nth-child(3) { animation-delay: .18s; }
+@keyframes rise { to { opacity: 1; transform: none; } }
+
+.angle {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-bottom: 9px;
+}
+
+/* The draft itself. This is the most-read text in the product. */
+.text {
+  font-size: 16.5px;
+  line-height: 1.75;
+  letter-spacing: .012em;
+  word-spacing: .07em;
+  color: var(--ink);
+  white-space: pre-wrap;
+  text-align: left;       /* never justified — justification opens rivers */
+  max-width: 56ch;
+  margin: 0 0 12px;
+}
+
+/* The draft is also its edit box. At rest it must read exactly like printed
+   text, so the box chrome only shows on hover and focus. It is pulled left by
+   its own padding so the words stay aligned with the label above. */
+textarea.text {
+  display: block;
+  width: calc(100% + 16px);
+  margin: 0 -8px 10px;
+  padding: 4px 8px;
+  font-family: var(--font);
+  background: transparent;
+  border: 1.5px solid transparent;
+  border-radius: 7px;
+  resize: none;
+  overflow: hidden;
+  cursor: text;
+}
+textarea.text:hover { border-color: var(--rule); }
+textarea.text:focus {
+  outline: none;
+  background: var(--paper);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+textarea.text:disabled { opacity: .45; cursor: progress; }
+.card[data-busy="true"] .angle { color: var(--ink-meta); }
+
+.card .note.bad { font-size: 14px; padding: 0 0 10px; }
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid var(--rule);
+  padding-top: 10px;
+  /* Four buttons plus the count don't fit at 428px; wrapping the row keeps
+     every label on one line instead of breaking "Use this" in two. */
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.card-foot .act { white-space: nowrap; }
+.count { font-size: 12.5px; color: var(--ink-meta); margin-left: auto; }
+.count[data-over="true"] { color: var(--warm); font-weight: 700; }
+
+.act {
+  appearance: none;
+  font-family: var(--font);
+  font-size: 13.5px;
+  font-weight: 700;
+  border: 1.5px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink-prose);
+  padding: 7px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.act:hover { border-color: var(--ink-meta); color: var(--ink); }
+.act.primary { background: var(--accent); border-color: var(--accent); color: #FBF6EC; }
+.act.primary:hover { background: #163F76; }
+.act[data-on="true"] { background: var(--warm-soft); border-color: var(--warm); color: var(--warm); }
+.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------------------------------------------------------- states ------ */
+
+.note {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink-prose);
+  max-width: 52ch;
+  padding: 8px 0;
+}
+.note.bad { color: var(--warm); font-weight: 700; }
+
+.thinking { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+.thinking .word { font-size: 15px; color: var(--ink-prose); }
+.thinking .bar {
+  width: 54px; height: 3px;
+  background: var(--paper-sunk);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.thinking .bar::after {
+  content: "";
+  display: block;
+  width: 40%; height: 100%;
+  background: var(--accent);
+  animation: sweep 1.05s ease-in-out infinite;
+}
+@keyframes sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+.context {
+  background: var(--paper-sunk);
+  border-left: 3px solid var(--rule);
+  border-radius: 0 7px 7px 0;
+  padding: 10px 13px;
+  margin: 10px 22px 0;
+  flex: none;
+}
+.context .who {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-meta);
+  margin-bottom: 5px;
+}
+.context .what {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-prose);
+  max-width: 52ch;
+  max-height: 5.4em;
+  overflow: hidden;
+}
+
+/* -------------------------------------------------- drafts on screen ----- */
+/* Three drafts appearing at once is the whole premise, so once they arrive
+   the input above them collapses and hands its height over. Nothing is
+   removed, only folded: the seed reopens on focus, the chips stay reachable
+   in one scrolling row, and clearing the drafts restores all of it.
+   Type sizes and colours are untouched here — those carry legibility. */
+
+.panel.has-results .mode-hint { display: none; }
+
+.panel.has-results .seed {
+  min-height: 0;
+  height: 46px;
+  transition: height .22s cubic-bezier(.16, 1, .3, 1);
+}
+.panel.has-results .seed:focus { height: 108px; }
+
+.panel.has-results .chips-label { display: none; }
+.panel.has-results .chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-top: 10px;
+  scrollbar-width: none;
+}
+.panel.has-results .chips::-webkit-scrollbar { display: none; }
+.panel.has-results .chip { flex: none; }
+
+.panel.has-results .results { padding-top: 12px; }
+.panel.has-results .card { padding: 13px 16px 10px; margin-bottom: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel.has-results .seed { transition: none; }
+  .panel, .card { animation-duration: .01ms; transform: none; opacity: 1; }
+  .thinking .bar::after { animation: none; width: 100%; }
+}

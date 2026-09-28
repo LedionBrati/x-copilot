@@ -1,0 +1,11 @@
+.env
+node_modules/
+posted.jsonl
+.DS_Store
+# Learned from posted.jsonl, which is private, so these are too.
+voice/learned.md
+voice/.learned-state.json
+# His personal voice profile. voice/ledi.example.md is the public template.
+voice/ledi.md
+# His scraped X posts, personal data like posted.jsonl.
+voice/corpus.jsonl

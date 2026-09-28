@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "x-copilot",
+  "version": "0.1.0",
+  "description": "Drafts posts and replies in your own voice, inside X. Talks only to a server on your own machine.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:8787/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["panel.css", "fonts/ahl-400.woff2", "fonts/ahl-700.woff2"],
+      "matches": ["https://x.com/*", "https://twitter.com/*"]
+    }
+  ]
+}
